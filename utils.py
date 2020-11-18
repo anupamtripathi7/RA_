@@ -4,6 +4,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def col_to_one_hot(df, col_name, prefix='', delete=True):                                   # new
+    """
+    Returns a dataframe with the specified column transformed to one hot
+    Args:
+        df (dataframe): Dataframe to be categorized
+        col_name (str): Name of column which needs to be made one hot
+        prefix (str): Prefix of all new one hot columns
+        delete (bool): If true, deleted the column after forming one hot columns from it
+    Returns: dataframe with column in one hot
+    """
+    one_hot_df = pd.get_dummies(df[col_name], prefix=prefix)
+    if delete:
+        df = df.drop(col_name, axis=1)
+    df = pd.concat([df, one_hot_df.reindex(df.index)], axis=1)
+    return df
+
+
+def to_categories(data):
+    """
+    Returns a dataframe with numeric classes starting from 0
+    Args:
+        data (dataframe): Dataframe to be categorized
+    Returns: dataframe with numeric classes
+    """
+    data = data.astype('category')
+    classes = list(range(len(data.unique())))
+    data = data.replace(data.unique(), classes)
+    return data
+
+
 def load_data_file_for_zone(zone, folder):                                                  # prev -> createAvailOrderSteerByZone
     """
     Loads and preprocess avial, order, steering n=and capacity csv files
@@ -46,7 +76,7 @@ def load_data_file_for_zone(zone, folder):                                      
     zone_output_path, zone_file_prefix = get_zone_output_path(zone, folder)
     if zone == '700.0':
         df_order['5_06:00 - 08:00'] = df_order['5_06:00 - 08:00'].fillna(0) + df_order['5_06:30 - 08:00'].fillna(0)
-        df_avail['6_06:00 - 08:00'] = df_avail['6_06:00 - 08:00'].fillna(0) + df_avail['6_06:30 - 08:00'].fillna(0)
+        df_order['6_06:00 - 08:00'] = df_order['6_06:00 - 08:00'].fillna(0) + df_order['6_06:30 - 08:00'].fillna(0)
         df_order = df_order.drop('6_05:00 - 06:00', axis=1)
         df_order = df_order.rename(columns={"6_05:00 - 06:30": "6_05:00 - 06:00"})
         df_order = df_order.drop('5_06:30 - 08:00', axis=1)
@@ -183,7 +213,7 @@ def get_slots_active(zone_folder, filename, df_order, slots_observed):          
     df['cslotsActive'] = cslots_active
     df.to_csv(os.path.join(zone_folder, filename + 'SlotsActiveTitle.csv'), index=False)
     k = list(df_order['SLOT_CHOICE'].values)
-    slots_offered = sort(list(set(np.unique(k)) & set(slots_observed))).tolist()
+    slots_offered = sorted(list(set(np.unique(k)) & set(slots_observed)))
     slots_censored = ['C'+i for i in slots_offered]
     df2 = pd.DataFrame()
     df2['slotsOffered'] = slots_offered
@@ -340,3 +370,72 @@ def get_cut_path(day, cutcat, zone_path, zone_prefix):                          
     if not os.path.exists(folder):
         os.makedirs(folder)
     return folder, filename
+
+
+def get_summary_col_info(summary_df, zone, root='data'):
+    """
+    Get column start and end number for avail, order, capacity, discount and eco
+    Args:
+        summary_df (dataframe): summary dataframe
+        zone (str): zone number in float
+        root (str, optional): root directory path
+
+    Returns:
+        (dict): start and end cols for each type
+    """
+    df_info = {}
+    zone_path, zone_file_prefix = get_zone_output_path(zone, root)
+    slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsObservedTitle.csv'))
+
+    col_no = 0
+    while col_no < len(summary_df.columns):
+        # avail slots
+        if summary_df.columns[col_no].startswith('C0_'):
+            df_info['avail'] = (col_no, col_no + len(slots_offered))
+            col_no += len(slots_offered)
+        # avail slots
+        elif summary_df.columns[col_no].endswith('_Eco'):
+            df_info['eco'] = (col_no, col_no + len(slots_offered))
+            col_no += len(slots_offered)
+        # discount slots
+        elif summary_df.columns[col_no].endswith('_Discount'):
+            df_info['discount'] = (col_no, col_no + len(slots_offered))
+            col_no += len(slots_offered)
+        # capacity slots
+        elif summary_df.columns[col_no].endswith('_Capacity'):
+            df_info['capacity'] = (col_no, col_no + len(slots_offered))
+            col_no += len(slots_offered)
+        # order slots
+        elif summary_df.columns[col_no].startswith('0_'):
+            df_info['order'] = (col_no, col_no + len(slots_offered))
+            col_no += len(slots_offered)
+        else:
+            col_no += 1
+    return df_info
+
+
+def get_slots_per_day_for_zone(zone, root='data'):
+    """
+    Get the number of slots per day for a zone
+    Args:
+        zone (str): zone number in float
+        root (str, optional): root directory path
+
+    Returns:
+        (dict): slots per day
+
+    """
+    zone_path, zone_file_prefix = get_zone_output_path(zone, root)
+    slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsObservedTitle.csv'))
+    slots_offered['day'] = slots_offered['slotsOffered'].apply(lambda x: x[0])
+    return slots_offered.groupby('day').count().slotsOffered.to_dict()
+
+
+if __name__ == '__main__':
+    zone = '700.0'
+    data_path = 'data'
+    zone_path, zone_file_prefix = get_zone_output_path(zone, data_path)
+    df_avail, df_order, df_steer, df_cap = load_data_file_for_zone(zone, data_path)
+    slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns)
+    slots_active, cslots_active, slots_offered, cslots_offered = get_slots_active(zone_path, zone_file_prefix,
+                                                                                  df_order, slots_observed)
