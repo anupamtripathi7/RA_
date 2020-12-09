@@ -78,5 +78,6 @@ def split_summary_by_day_and_cut():
                     plt.close()
                 del summary, cut_path, cut_prefix
 
+
 if __name__ == "__main__":
     create_summary_by_zone(['500.0'])

@@ -426,16 +426,37 @@ def get_slots_per_day_for_zone(zone, root='data'):
 
     """
     zone_path, zone_file_prefix = get_zone_output_path(zone, root)
-    slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsObservedTitle.csv'))
-    slots_offered['day'] = slots_offered['slotsOffered'].apply(lambda x: x[0])
+    slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsOfferedTitle.csv'))
+    slots_offered['day'] = slots_offered['slotsOffered'].apply(lambda x: int(x[0]))
     return slots_offered.groupby('day').count().slotsOffered.to_dict()
 
 
-if __name__ == '__main__':
-    zone = '700.0'
-    data_path = 'data'
-    zone_path, zone_file_prefix = get_zone_output_path(zone, data_path)
-    df_avail, df_order, df_steer, df_cap = load_data_file_for_zone(zone, data_path)
-    slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns)
-    slots_active, cslots_active, slots_offered, cslots_offered = get_slots_active(zone_path, zone_file_prefix,
-                                                                                  df_order, slots_observed)
+def save_result_to_file(df, file, folder):
+    """
+    Adds DataFrame to existing file. Creates new if file or folder does not exists.
+    Args:
+        df:
+        file:
+        folder:
+
+    Returns:
+
+    """
+    if os.path.exists(os.path.join(folder, file)):
+        df_file = pd.read_csv(os.path.join(folder, file))
+        df = df_file.append(df)
+    else:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+    df = df.drop_duplicates(subset=['mode'], keep='last')
+    df.to_csv(os.path.join(folder, file))
+
+#
+# if __name__ == '__main__':
+#     zone = '700.0'
+#     data_path = 'data'
+#     zone_path, zone_file_prefix = get_zone_output_path(zone, data_path)
+#     df_avail, df_order, df_steer, df_cap = load_data_file_for_zone(zone, data_path)
+#     slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns)
+#     slots_active, cslots_active, slots_offered, cslots_offered = get_slots_active(zone_path, zone_file_prefix,
+#                                                                                   df_order, slots_observed)
