@@ -9,7 +9,7 @@ zone = '500.0'
 root = 'data'
 
 
-def unstack_summary_df(summary_df, root='data'):  # do for summary
+def unstack_summary_df(summary_df, zone, root='data'):  # do for summary
     """
     Unstacks the summary dataframe
     Args:
@@ -17,10 +17,11 @@ def unstack_summary_df(summary_df, root='data'):  # do for summary
 
     Returns: unstacked dataframe
     """
+    zone_path, zone_file_prefix = get_zone_output_path(zone, root)
+    if os.path.exists(os.path.join(zone_path, zone_file_prefix + 'unstacked.csv')):
+        return pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'unstacked.csv'))
     summary_df['primary_key'] = summary_df['EVENT_DTM'].astype(str) + '-' + summary_df['CUSTOMER_ID'].astype(str)
     slots_per_day = u.get_slots_per_day_for_zone(zone, root)
-    zone_path, zone_file_prefix = get_zone_output_path(zone, root)
-    print(zone_path, zone_file_prefix)
     slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsOfferedTitle.csv'))
     slots = list(slots_offered['slotsOffered'])
 
@@ -51,6 +52,7 @@ def unstack_summary_df(summary_df, root='data'):  # do for summary
                     slots_per_day[int(n[0])] - 1)
         df_slots = df_slots.append(features)
     df_slots = u.col_to_one_hot(df_slots, 'slot', prefix='slot')
+    df_slots.to_csv(os.path.join(zone_path, zone_file_prefix + 'unstacked.csv'))
     return df_slots
 
 
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     zone_path, zone_file_prefix = get_zone_output_path(zone, root)
     summary_df = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'Summary.csv'))
     print(summary_df)
-    unstacked_summary_df = unstack_summary_df(summary_df).dropna(subset=['capacity'])
+    unstacked_summary_df = unstack_summary_df(summary_df, zone=zone).dropna(subset=['capacity'])
     print(unstacked_summary_df)
     # temp_unstacked = stack_df(unstacked_summary_df)
     # print(temp_unstacked)

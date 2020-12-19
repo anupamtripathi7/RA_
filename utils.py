@@ -443,13 +443,29 @@ def save_result_to_file(df, file, folder):
 
     """
     if os.path.exists(os.path.join(folder, file)):
-        df_file = pd.read_csv(os.path.join(folder, file))
-        df = df_file.append(df)
+        df_file = pd.read_csv(os.path.join(folder, file), index_col=0)
+        df = df_file.append(df, ignore_index=True)
     else:
         if not os.path.exists(folder):
             os.mkdir(folder)
-    df = df.drop_duplicates(subset=['mode'], keep='last')
+    df = df.drop_duplicates(subset=['mode', 'arrival', 'cut'], keep='last')
     df.to_csv(os.path.join(folder, file))
+
+
+# def save_regression_summary_as_txt(folder, summary, regression='linear'):
+#     """
+#     Save regression summary as a text file
+#     Args:
+#         folder:
+#         summary:
+#         regression:
+#
+#     Returns:
+#
+#     """
+#     # zone_path, zone_file_prefix = get_zone_output_path(zone, root)
+#     with open(os.path.join(folder, regression + '.txt'), "w") as text_file:
+#         text_file.write(str(summary))
 
 #
 # if __name__ == '__main__':
