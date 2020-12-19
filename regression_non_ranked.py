@@ -86,7 +86,7 @@ def probit_parameterized(x, y, arrival_choice, cut_choice, cap_mode_choice=2):
 
     r2 = r2_score(y_test, probit_model.predict(x_test))
 
-    output = {'mode': cap_mode_choice}
+    output = {'mode': cap_mode_choice, 'arrival': arrival_choice, 'cut': cut_choice}
     for key, value in probit_model.params.items():
         output[key] = value
     output['r2'] = r2
