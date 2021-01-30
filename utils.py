@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def col_to_one_hot(df, col_name, prefix='', delete=True):                                   # new
+def col_to_one_hot(df, col_name, prefix='', delete=True, drop_first=False):                                   # new
     """
     Returns a dataframe with the specified column transformed to one hot
     Args:
@@ -12,9 +12,12 @@ def col_to_one_hot(df, col_name, prefix='', delete=True):                       
         col_name (str): Name of column which needs to be made one hot
         prefix (str): Prefix of all new one hot columns
         delete (bool): If true, deleted the column after forming one hot columns from it
+        drop_first(bool): If true, drops the first column of the one hot column
     Returns: dataframe with column in one hot
     """
     one_hot_df = pd.get_dummies(df[col_name], prefix=prefix)
+    if drop_first:
+        one_hot_df = one_hot_df.iloc[:, 1:]
     if delete:
         df = df.drop(col_name, axis=1)
     df = pd.concat([df, one_hot_df.reindex(df.index)], axis=1)
@@ -172,6 +175,9 @@ def get_slots_observed(zone_folder, filename, df_avail, df_order_columns):      
         offered and censored time-slots
 
     """
+    # if os.path.exists(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv')):
+    #     df = pd.read_csv(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv'))
+
     df_offered = df_avail.dropna(axis=1, how='all')
     for i in df_offered.columns:
         if str(i).endswith('0') and i[1:] not in df_order_columns:
@@ -208,18 +214,85 @@ def get_slots_active(zone_folder, filename, df_order, slots_observed):          
         if i.endswith('0') and (sum(df_order[i]) > 1):
             slots_active.append(i)
             cslots_active.append('C'+i)
-    df = pd.DataFrame()
-    df['slotsActive'] = slots_active
-    df['cslotsActive'] = cslots_active
-    df.to_csv(os.path.join(zone_folder, filename + 'SlotsActiveTitle.csv'), index=False)
     k = list(df_order['SLOT_CHOICE'].values)
-    slots_offered = sorted(list(set(np.unique(k)) & set(slots_observed)))
+    slots_offered = sorted(list(set(np.unique(k)) & set(slots_observed)))         # check
     slots_censored = ['C'+i for i in slots_offered]
-    df2 = pd.DataFrame()
-    df2['slotsOffered'] = slots_offered
-    df2['cslotsOffered'] = slots_censored
-    df2.to_csv(os.path.join(zone_folder, filename + 'SlotsOfferedTitle.csv'), index=False)
+    df = pd.DataFrame()
+    df['slotsOffered'] = slots_offered
+    df['cslotsOffered'] = slots_censored
+    df.to_csv(os.path.join(zone_folder, filename + 'SlotsOfferedTitle.csv'), index=False)
     return slots_active, cslots_active, slots_offered, slots_censored
+
+
+def get_slots_observed_2(zone_folder, filename, df_summary):                         # new, check
+    """
+    Gets all the slots that were offered
+    Args:
+        df_summary (dataframe): Order dataframe
+
+    Returns:
+        offered and censored time-slots
+    """
+    slots_offered = []
+    cslots_offered = []
+    for i in df_summary.columns:
+        if i[0].isdigit() and i[-1].isdigit() and sum(df_summary[i]) > 1:
+            slots_offered.append(i)
+            cslots_offered.append('C'+i)
+    df = pd.DataFrame()
+    df['slotsObserved'] = slots_offered
+    df['cslotsObserved'] = cslots_offered
+    # df.to_csv(os.path.join(zone_folder, 'RankData', filename + 'SlotsObservedTitle.csv'), index=False)
+    return slots_offered, cslots_offered
+
+
+def get_slots_observed_ranked(zone_folder, filename, df_summary):                         # new
+    """
+    Gets all the slots that were offered for ranked data
+    Args:
+        df_summary (dataframe): Order dataframe
+
+    Returns:
+        offered and censored time-slots
+    """
+    df_summary = df_summary.fillna(0)
+    slots_offered = []
+    cslots_offered = []
+    for i in df_summary.columns:
+        if i[0].isdigit() and i[-1].isdigit() and sum(df_summary[i]) > 1:
+            slots_offered.append(i)
+            cslots_offered.append('C'+i)
+    df = pd.DataFrame()
+    df['slotsObserved'] = slots_offered
+    df['cslotsObserved'] = cslots_offered
+    print(zone_folder, 'RankData', filename + 'SlotsObservedTitle.csv')
+    df.to_csv(os.path.join(zone_folder, 'RankData', filename + 'SlotsObservedTitle.csv'), index=False)
+    return slots_offered, cslots_offered
+
+
+def get_slots_active_ranked(zone_folder, filename, df_summary):                         # new
+    """
+    Gets the slots that were picked at least once
+    Args:
+        df_summary (dataframe): Order dataframe
+
+    Returns:
+        offered and censored time-slots
+
+    """
+    if os.path.exists(os.path.join(zone_folder, 'RankData', filename + 'SlotsObservedTitle.csv')):
+        df = pd.read_csv(os.path.join(zone_folder, 'RankData', filename + 'SlotsObservedTitle.csv'))
+        slots_observed = df['slotsObserved']
+    else:
+        slots_observed, _ = get_slots_observed_ranked(zone_folder, filename, df_summary)
+    k = list(df_summary['SLOT_CHOICE'].values)
+    slots_offered = sorted(list(set(np.unique(k)) & set(slots_observed)))
+    slots_censored = ['C' + i for i in slots_offered]
+    df = pd.DataFrame()
+    df['slotsOffered'] = slots_offered
+    df['cslotsOffered'] = slots_censored
+    df.to_csv(os.path.join(zone_folder, 'RankData', filename + 'SlotsOfferedTitle.csv'), index=False)
+    return slots_offered, slots_censored
 
 
 def summarize(zone_folder, filename, df_avail, df_order, df_steer, df_cap, slots_offered, slots_censored):
@@ -431,6 +504,23 @@ def get_slots_per_day_for_zone(zone, root='data'):
     return slots_offered.groupby('day').count().slotsOffered.to_dict()
 
 
+def get_slots_per_day_for_zone_ranked(zone, root='data'):
+    """
+    Get the number of slots per day for a zone
+    Args:
+        zone (str): zone number in float
+        root (str, optional): root directory path
+
+    Returns:
+        (dict): slots per day
+
+    """
+    zone_path, zone_file_prefix = get_zone_output_path(zone, root)
+    slots_offered = pd.read_csv(os.path.join(zone_path, 'RankData', zone_file_prefix + 'SlotsOfferedTitle.csv'))
+    slots_offered['day'] = slots_offered['slotsOffered'].apply(lambda x: int(x[0]))
+    return slots_offered.groupby('day').count().slotsOffered.to_dict()
+
+
 def save_result_to_file(df, file, folder):
     """
     Adds DataFrame to existing file. Creates new if file or folder does not exists.
@@ -450,6 +540,31 @@ def save_result_to_file(df, file, folder):
             os.mkdir(folder)
     df = df.drop_duplicates(subset=['mode', 'arrival', 'cut'], keep='last')
     df.to_csv(os.path.join(folder, file))
+
+
+def get_hour_list(zone):                                                       # prev -> getHourList
+    if zone == '500.0':
+        hourlist={'06:30 - 08:00': '2',
+                  '08:00 - 10:00': '3',
+                  '10:00 - 12:00': '4',
+                  '12:00 - 14:00': '5',
+                  '14:00 - 16:00': '6',
+                  '16:00 - 18:00': '7',
+                  '18:00 - 20:00': '8',
+                  '20:00 - 22:00': '9',
+                  '22:00 - 23:30': '10'}
+    else:
+        hourlist={'05:00 - 06:00': '1',
+                  '06:00 - 08:00': '2',
+                  '08:00 - 10:00': '3',
+                  '10:00 - 12:00': '4',
+                  '12:00 - 14:00': '5',
+                  '14:00 - 16:00': '6',
+                  '16:00 - 18:00': '7',
+                  '18:00 - 20:00': '8',
+                  '20:00 - 22:00': '9',
+                  '22:00 - 23:30': '10'}
+    return hourlist
 
 
 # def save_regression_summary_as_txt(folder, summary, regression='linear'):
@@ -476,3 +591,14 @@ def save_result_to_file(df, file, folder):
 #     slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns)
 #     slots_active, cslots_active, slots_offered, cslots_offered = get_slots_active(zone_path, zone_file_prefix,
 #                                                                                   df_order, slots_observed)
+
+if __name__ == "__main__":
+    zone_path, zone_file_prefix = get_zone_output_path('500.0', 'data')
+    df = pd.DataFrame()
+    path = os.path.join(zone_path, 'RankData', zone_file_prefix + 'Arrival_Day_{}' + '_Summary.csv')
+    for days in range(7):
+        df = df.append(pd.read_csv(path.format(days)))
+    print(df)
+    df = df.fillna(0)
+    print(get_slots_active_ranked(zone_path, zone_file_prefix, df))
+
