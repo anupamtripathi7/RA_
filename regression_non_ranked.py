@@ -24,7 +24,7 @@ root = 'data'
 results_path = 'results/regression'
 
 
-def get_regression_features(zone_choice, arrival_choice=-1, cut_choice=-1, cap_mode_choice=0):
+def get_regression_features(zone_choice, arrival_choice=-1, cut_choice=-1, cap_mode_choice=2):
     zone_path, zone_file_prefix = get_zone_output_path(zone_choice, root)
     df = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'Summary.csv'))
     df = unstack_summary_df(df, zone=zone_choice).dropna(subset=['capacity'])
@@ -102,7 +102,7 @@ def probit_parameterized(x, y, arrival_choice=-1, cut_choice=-1, cap_mode_choice
     return probit_model
 
 
-def regression_all_cuts_all_arrivals(zone_choice, cap_mode_choice):
+def regression_all_cuts_all_arrivals(zone_choice, cap_mode_choice=2):
     arrivals = [-1, 0, 1, 2, 3, 4, 5, 6]
     cuts = [-1, 0, 1, 2]
     for arrival in tqdm(arrivals):
