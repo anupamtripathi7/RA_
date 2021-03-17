@@ -53,7 +53,7 @@ def gr_non_ranked(zone_choice, cap_mode_choice=2, arrival_choice=0, cut_choice=0
 
     gr = fill_gr(y, model.predict(x))
     df = pd.concat([df, gr.reindex(df.index).rename('gr')], axis=1)
-    df = stack_df(df, save=False)
+    df = stack_df(df, save=False, gr=True)
     df.to_csv(os.path.join(result_path, zone_choice, 'gr_unranked_stacked_arrival_{}_cut_{}_cap_{}.csv'.format(arrival_choice, cut_choice, cap_mode_choice)))
 
 
@@ -78,7 +78,7 @@ def gr_ranked(zone_choice, cap_mode_choice=2):
 
     gr = fill_gr(y, model.predict(x))
     df = pd.concat([df, gr.reindex(df.index)], axis=1)
-    df = stack_df(df, save=False)
+    df = stack_df(df, save=False, gr=True)
     df.to_csv(os.path.join(result_path, 'gr_ranked_stacked_cap_{}.csv'.format(cap_mode_choice)))
     return df
 

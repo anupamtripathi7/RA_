@@ -103,7 +103,7 @@ def unstack_summary_df_ranked(summary_df, zone, root='data', check_saved=True): 
     return df_slots
 
 
-def stack_df(df, save=True):
+def stack_df(df, save=True, gr=False):
     slot_columns = [c for c in df.columns if c[:5] == 'slot_']
 
     df['slot'] = df.loc[:, slot_columns].idxmax(1)
@@ -119,6 +119,8 @@ def stack_df(df, save=True):
             stacked_row['C_' + row[1]['slot']] = row[1]['avail']
             stacked_row[row[1]['slot'] + '_Capacity'] = row[1]['capacity']
             stacked_row[row[1]['slot'] + '_Eco'] = row[1]['eco']
+            if gr:
+                stacked_row[row[1]['slot'] + 'Gr'] = row[1]['gr']
             stacked_row[row[1]['slot'] + '_Discount'] = row[1]['discount']
         stacked_df.append(stacked_row)
     stacked_df = pd.DataFrame(stacked_df)
