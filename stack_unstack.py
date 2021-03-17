@@ -150,6 +150,30 @@ def stack_df_ranked(df):
     return pd.DataFrame(stacked_df)
 
 
+def stack_df_2(df, save=True):
+    slot_columns = [c for c in df.columns if c[:5] == 'slot_']
+
+    df['slot'] = df.loc[:, slot_columns].idxmax(1)
+    df['slot'] = df['slot'].apply(lambda x: x[5:])
+    df = df.drop(slot_columns, axis=1)
+    stacked_df = []
+    for name, group in tqdm(df.groupby(['primary_key', 'arrival', 'cut'])):
+        stacked_row = {'primary_key': name[0],
+                         'cut': name[2],
+                         'arrival': name[1]}
+        for row in group.iterrows():
+            stacked_row[row[1]['slot']] = row[1]['order']
+            stacked_row['C_' + row[1]['slot']] = row[1]['avail']
+            stacked_row[row[1]['slot'] + '_Capacity'] = row[1]['capacity']
+            stacked_row[row[1]['slot'] + '_Eco'] = row[1]['eco']
+            stacked_row[row[1]['slot'] + '_Discount'] = row[1]['discount']
+        stacked_df.append(stacked_row)
+    stacked_df = pd.DataFrame(stacked_df)
+    if save:
+        stacked_df.to_csv(os.path.join(results_path, 'stacked.csv'))
+    return pd.DataFrame(stacked_df)
+
+
 if __name__ == "__main__":
     # zone_path, zone_file_prefix = get_zone_output_path(zone, root)
     # df = pd.DataFrame()
@@ -163,5 +187,5 @@ if __name__ == "__main__":
     print(summary_df)
     unstacked_summary_df = unstack_summary_df(summary_df, zone=zone, check_saved=False).dropna(subset=['capacity'])
     print(unstacked_summary_df)
-    temp_unstacked = stack_df(unstacked_summary_df)
+    temp_unstacked = stack_df_2(unstacked_summary_df)
     print(temp_unstacked)

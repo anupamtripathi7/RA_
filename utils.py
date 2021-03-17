@@ -162,7 +162,7 @@ def get_zone_output_path(zone, folder):                                         
     return os.path.join(folder, 'Zones', zone[:-2]), 'Zone_'+zone[:-2] + '_'
 
 
-def get_slots_observed(zone_folder, filename, df_avail, df_order_columns):                                  # prev -> getSlotsObserved
+def get_slots_observed(zone_folder, filename, df_avail, df_order_columns, check_existing):                                  # prev -> getSlotsObserved
     """
     Remove time-slots which appear in the Avail sheet but not in the Order sheet
     Args:
@@ -170,13 +170,14 @@ def get_slots_observed(zone_folder, filename, df_avail, df_order_columns):      
         filename (str): Zone file name prefix
         df_avail (dataframe): Avail dataframe
         df_order_columns (list): Columns names from df_order
+        check_existing (bool): If true, checks for existing file
 
     Returns:
         offered and censored time-slots
 
     """
-    # if os.path.exists(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv')):
-    #     df = pd.read_csv(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv'))
+    if check_existing and os.path.exists(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv')):
+        return pd.read_csv(os.path.join(zone_folder, filename + 'SlotsObservedTitle.csv'))
 
     df_offered = df_avail.dropna(axis=1, how='all')
     for i in df_offered.columns:

@@ -104,11 +104,11 @@ def probit_parameterized_ranked(x, y, arrival_choice, cut_choice, cap_mode_choic
 
     r2 = r2_score(y_test, probit_model.predict(x_test))
 
-    output = {'mode': cap_mode_choice, 'arrival_choice': arrival_choice, 'cut_choice': cut_choice}
-    for key, value in probit_model.params.items():
-        output[key] = value
-    output['r2'] = r2
     if save:
+        output = {'mode': cap_mode_choice, 'arrival_choice': arrival_choice, 'cut_choice': cut_choice}
+        for key, value in probit_model.params.items():
+            output[key] = value
+        output['r2'] = r2
         file_name = 'probit_arrival-{}_cut-{}_cap-{}.txt'.format(arrival_choice, cut_choice, cap_mode_choice)
         with open(os.path.join(os.path.join(results_path, zone, 'ranked'), file_name), "w") as text_file:
             text_file.write(str(probit_model.summary()))

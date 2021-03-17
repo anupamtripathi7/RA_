@@ -29,16 +29,18 @@ def fill_gr(y, y_pred):
     return y * imr - (1 - y) * imr
 
 
-def gr_non_ranked(zone_choice, cap_mode_choice=2):
+def gr_non_ranked(zone_choice, cap_mode_choice=2, arrival_choice=0, cut_choice=0):
     """
         Calculate gr values for each slot of the ranked data
         Args:
             zone_choice (str): Zone number in float string
             cap_mode_choice (int, optional): 0 for eco + slot capacity only, 1 for slot + daily average, 2 for all
+            arrival_choice
+            cut_choice
         Returns:
             (pd.DataFrame): Stacked version of summary file with gr values
         """
-    _, _, df = get_regression_features(zone_choice)
+    _, _, df = get_regression_features(zone_choice, arrival_choice=arrival_choice, cut_choice=cut_choice)
     y = df["discount"]
     if cap_mode_choice == 0:
         x = df[['capacity', 'eco']]
@@ -50,10 +52,9 @@ def gr_non_ranked(zone_choice, cap_mode_choice=2):
     model = probit_parameterized(x, y, save=False)
 
     gr = fill_gr(y, model.predict(x))
-    df = pd.concat([df, gr.reindex(df.index)], axis=1)
+    df = pd.concat([df, gr.reindex(df.index).rename('gr')], axis=1)
     df = stack_df(df, save=False)
-    print(df, df.columns)
-    df.to_csv(os.path.join(result_path, 'gr_unranked_stacked.csv'))
+    df.to_csv(os.path.join(result_path, zone_choice, 'gr_unranked_stacked_arrival_{}_cut_{}_cap_{}.csv'.format(arrival_choice, cut_choice, cap_mode_choice)))
 
 
 def gr_ranked(zone_choice, cap_mode_choice=2):
@@ -78,11 +79,11 @@ def gr_ranked(zone_choice, cap_mode_choice=2):
     gr = fill_gr(y, model.predict(x))
     df = pd.concat([df, gr.reindex(df.index)], axis=1)
     df = stack_df(df, save=False)
-    df.to_csv(os.path.join(result_path, 'gr_ranked_stacked.csv'))
+    df.to_csv(os.path.join(result_path, 'gr_ranked_stacked_cap_{}.csv'.format(cap_mode_choice)))
     return df
 
 
-def gr_non_ranked_all_cuts_all_arrivals(zone_choice, cap_mode_choice):
+def gr_non_ranked_all_cuts_all_arrivals(zone_choice, cap_mode_choice=2):
     """
     Calculate gr values for each slots for all arrivals and cuts.
     Args:
@@ -93,7 +94,8 @@ def gr_non_ranked_all_cuts_all_arrivals(zone_choice, cap_mode_choice):
     cuts = [-1, 0, 1, 2]
     for arrival in tqdm(arrivals):
         for cut in cuts:
-            gr_non_ranked(zone_choice)
+            gr_non_ranked(zone_choice, cap_mode_choice=cap_mode_choice, arrival_choice=arrival, cut_choice=cut)
+
 
 if __name__ == "__main__":
-    gr_ranked(zone)
+    gr_non_ranked_all_cuts_all_arrivals(zone)
