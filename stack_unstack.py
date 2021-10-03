@@ -1,3 +1,6 @@
+# ToDO: added no purchase to unstack non ranked. Test remaining
+
+
 import pandas as pd
 from tqdm import tqdm
 import os
@@ -10,7 +13,7 @@ root = 'data'
 results_path = 'results'
 
 
-def unstack_summary_df(summary_df, zone, root='data', check_saved=True):  # do for summary
+def unstack_summary_df(summary_df, zone, root='data', check_saved=False, save=False):  # do for summary
     """
     Unstacks the summary dataframe
     Args:
@@ -35,29 +38,39 @@ def unstack_summary_df(summary_df, zone, root='data', check_saved=True):  # do f
         summary_df['capacity_sum_day_' + str(day)] = summary_df.iloc[:, slot_start: slot_end].fillna(0).sum(axis=1)
 
     df_slots = pd.DataFrame()
-    for n in tqdm(slots):
+    for n in tqdm(slots + ['NO_PURCHASE']):
         features = pd.DataFrame()
         features['primary_key'] = summary_df['primary_key']
         features['arrival'] = summary_df['ARRIVAL_DAY']
         features['cut'] = summary_df['ARRIVAL_CAT']
         features['slot'] = n
         features['day'] = n[0]
-        features['capacity'] = summary_df[n + '_Capacity']
-        features['discount'] = summary_df[n + '_Discount']
-        features['eco'] = summary_df[n + '_Eco']
+        if n != 'NO_PURCHASE':
+            features['capacity'] = summary_df[n + '_Capacity']
+            features['discount'] = summary_df[n + '_Discount']
+            features['eco'] = summary_df[n + '_Eco']
+            features['capacity_avg_global'] = (summary_df['capacity_sum_global'] - summary_df[n + '_Capacity']) / (
+                    len(slots) - 1)
+            features['capacity_avg_day'] = (summary_df['capacity_sum_day_' + str(n[0])] - summary_df[
+                n + '_Capacity']) / (slots_per_day[int(n[0])] - 1)
+        else:
+            features['day'] = n
+            features['capacity'] = 1
+            features['discount'] = 0
+            features['eco'] = 0
+            features['capacity_avg_global'] = 1
+            features['capacity_avg_day'] = 1
         features['order'] = summary_df[n]
         features['avail'] = summary_df['C' + n]
-        features['capacity_avg_global'] = (summary_df['capacity_sum_global'] - summary_df[n + '_Capacity']) / (
-                    len(slots) - 1)
-        features['capacity_avg_day'] = (summary_df['capacity_sum_day_' + str(n[0])] - summary_df[n + '_Capacity']) / (
-                    slots_per_day[int(n[0])] - 1)
+
         df_slots = df_slots.append(features)
     df_slots = u.col_to_one_hot(df_slots, 'slot', prefix='slot')
-    df_slots.to_csv(os.path.join(zone_path, zone_file_prefix + 'unstacked.csv'))
+    if save:
+        df_slots.to_csv(os.path.join(zone_path, zone_file_prefix + 'unstacked.csv'))
     return df_slots
 
 
-def unstack_summary_df_ranked(summary_df, zone, root='data', check_saved=True):  # do for summary
+def unstack_summary_df_ranked(summary_df, zone, root='data', check_saved=False, save=False):  # do for summary
     """
     Unstacks the summary dataframe
     Args:
@@ -79,27 +92,36 @@ def unstack_summary_df_ranked(summary_df, zone, root='data', check_saved=True): 
         slot_start = slot_end if day != 0 else list(summary_df.columns).index(slots[0] + '_Capacity')
         slot_end = slot_start + slots_per_day[day+1]
         summary_df['capacity_sum_day_' + str(day+1)] = summary_df.iloc[:, slot_start: slot_end].fillna(0).sum(axis=1)
-
+    summary_df = summary_df.fillna(0)
     df_slots = pd.DataFrame()
-    for n in tqdm(slots):
+    for n in tqdm(slots + ['NO_PURCHASE']):
         features = pd.DataFrame()
         features['primary_key'] = summary_df['primary_key']
         features['arrival'] = summary_df['ARRIVAL_DAY']
         features['cut'] = summary_df['ARRIVAL_CAT']
         features['slot'] = n
         features['day'] = n[0]
-        features['capacity'] = summary_df[n + '_Capacity']
-        features['discount'] = summary_df[n + '_Discount']
-        features['eco'] = summary_df[n + '_Eco']
+        if n != 'NO_PURCHASE':
+            features['capacity'] = summary_df[n + '_Capacity']
+            features['discount'] = summary_df[n + '_Discount']
+            features['eco'] = summary_df[n + '_Eco']
+            features['capacity_avg_global'] = (summary_df['capacity_sum_global'] - summary_df[n + '_Capacity']) / (
+                    len(slots) - 1)
+            features['capacity_avg_day'] = (summary_df['capacity_sum_day_' + str(n[0])] - summary_df[n + '_Capacity']) / (
+                    slots_per_day[int(n[0])] - 1)
+        else:
+            features['day'] = n
+            features['capacity'] = 1
+            features['discount'] = 0
+            features['eco'] = 0
+            features['capacity_avg_global'] = 1
+            features['capacity_avg_day'] = 1
         features['order'] = summary_df[n]
         features['avail'] = summary_df['C' + n]
-        features['capacity_avg_global'] = (summary_df['capacity_sum_global'] - summary_df[n + '_Capacity']) / (
-                    len(slots) - 1)
-        features['capacity_avg_day'] = (summary_df['capacity_sum_day_' + str(n[0])] - summary_df[n + '_Capacity']) / (
-                    slots_per_day[int(n[0])] - 1)
         df_slots = df_slots.append(features)
     df_slots = u.col_to_one_hot(df_slots, 'slot', prefix='slot', delete=False)
-    df_slots.to_csv(os.path.join(zone_path, 'RankData', zone_file_prefix + 'unstacked.csv'))
+    if save:
+        df_slots.to_csv(os.path.join(zone_path, 'RankData', zone_file_prefix + 'unstacked.csv'))
     return df_slots
 
 
@@ -129,7 +151,7 @@ def stack_df(df, save=True, gr=False):
     return pd.DataFrame(stacked_df)
 
 
-def stack_df_ranked(df):
+def stack_df_ranked(df, gr=False):
     slot_columns = [c for c in df.columns if c[:5] == 'slot_']
 
     df['slot'] = df.loc[:, slot_columns].idxmax(1)
@@ -145,10 +167,12 @@ def stack_df_ranked(df):
             stacked_row['C_' + row[1]['slot']] = row[1]['avail']
             stacked_row[row[1]['slot'] + '_Capacity'] = row[1]['capacity']
             stacked_row[row[1]['slot'] + '_Eco'] = row[1]['eco']
+            if gr:
+                stacked_row[row[1]['slot'] + 'Gr'] = row[1]['gr']
             stacked_row[row[1]['slot'] + '_Discount'] = row[1]['discount']
         stacked_df.append(stacked_row)
     stacked_df = pd.DataFrame(stacked_df)
-    stacked_df.to_csv('stacked.csv')
+    # stacked_df.to_csv('stacked.csv')
     return pd.DataFrame(stacked_df)
 
 

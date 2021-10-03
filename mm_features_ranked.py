@@ -25,12 +25,16 @@ def get_active_features(summary_df, slots_offered):                         # pr
     """
     disc_cols = [col+'_Discount' for col in slots_offered]
     eco_cols = [col+'_Eco' for col in slots_offered]
-    gr_cols = [col+'_Eco' for col in slots_offered]
+    gr_cols = [col+'Gr' for col in slots_offered]
     features = summary_df.loc[:, disc_cols+eco_cols+gr_cols]
-    features = features.loc[:, features.sum(axis=0) > 0]
+    features.loc[:, gr_cols] = features.loc[:, gr_cols].abs()
+    features = features.loc[:, features.sum(axis=0) != 0]
+    disc_cols = set(disc_cols) & set(features.columns)
+    eco_cols = set(eco_cols) & set(features.columns)
+    gr_cols = set(gr_cols) & set(features.columns)
     for i in reversed(['NO_PURCHASE']+slots_offered):
         features.insert(0, i+'_Asc', value=1)
-    return features, disc_cols, eco_cols, gr_cols
+    return features, list(disc_cols), list(eco_cols), list(gr_cols)
 
 
 def get_design_matrix(feature_columns, slots_offered):                           # prev -> getDesignMatrix
@@ -95,43 +99,43 @@ def update_beta(design, features_df, discount_slots, eco_slots, gr_slots, assort
     return [beta_new, Q]
 
 
-def mm_features(Location, filename, summary, slots_offered):
-    beta_coef = np.append([0], np.random.rand(len(slots_offered) + 3))
-    features_df, disc_cols, eco_cols, gr_cols = get_active_features(summary, slots_offered)
-    beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
-    design_df = get_design_matrix(features_df.columns.tolist(), slots_offered)
-    assortment_df = summary.loc[:, ['C' + col for col in ['NO_PURCHASE'] + slots_offered.tolist()]].fillna(0)
-    choice_df = summary.loc[:, [col for col in ['NO_PURCHASE'] + slots_offered.tolist()]].fillna(0)
-    design = design_df.values
-    features = features_df.values
-    assortment = assortment_df.values
-    choice = choice_df.values
-
-    i = 0
-    while True:
-        i += 1
-        beta = np.copy(beta_coef)
-        beta_ext_cp = np.copy(beta_ext)
-        beta_coef, Q = update_beta(design, features, disc_cols, eco_cols, gr_cols, assortment, choice, beta_ext_cp, beta, slots_offered)
-        log_likeli = sum(np.log(sum(Q * choice, 1)))
-        beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
-        print('Iteration=', i, 'loglikelihood =', log_likeli, 'beta_disc', beta_coef[-3], 'beta_eco', beta_coef[-2], 'beta_gr', beta_coef[-1])
-        if np.linalg.norm(beta_coef - beta) < 10 ** -6 or i > 500:
-            predict_prob_df = pd.DataFrame(Q, columns=['NO_PURCHASE'] + slots_offered.tolist())
-            beta_df = pd.DataFrame([np.array(beta_coef)], columns=['NO_PURCHASE'] + slots_offered.tolist() + ['Discount', 'Eco', 'Gr'])
-            predict_prob_df.to_csv(Location + filename + 'predprobfeatures.csv')
-            beta_df.to_csv(Location + filename + 'betafeatures.csv')
-            del summary, predict_prob_df, design_df, features_df, assortment_df, choice_df, design, features, assortment, choice
-            break
-    return beta_df.iloc[0]
+# def mm_features(Location, filename, summary, slots_offered):
+#     beta_coef = np.append([0], np.random.rand(len(slots_offered) + 3))
+#     features_df, disc_cols, eco_cols, gr_cols = get_active_features(summary, slots_offered)
+#     beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
+#     design_df = get_design_matrix(features_df.columns.tolist(), slots_offered)
+#     assortment_df = summary.loc[:, ['C' + col for col in ['NO_PURCHASE'] + slots_offered]].fillna(0)
+#     choice_df = summary.loc[:, [col for col in ['NO_PURCHASE'] + slots_offered]].fillna(0)
+#     design = design_df.values
+#     features = features_df.values
+#     assortment = assortment_df.values
+#     choice = choice_df.values
+#
+#     i = 0
+#     while True:
+#         i += 1
+#         beta = np.copy(beta_coef)
+#         beta_ext_cp = np.copy(beta_ext)
+#         beta_coef, Q = update_beta(design, features, disc_cols, eco_cols, gr_cols, assortment, choice, beta_ext_cp, beta, slots_offered)
+#         log_likeli = sum(np.log(sum(Q * choice, 1)))
+#         beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
+#         print('Iteration=', i, 'loglikelihood =', log_likeli, 'beta_disc', beta_coef[-3], 'beta_eco', beta_coef[-2], 'beta_gr', beta_coef[-1])
+#         if np.linalg.norm(beta_coef - beta) < 10 ** -6 or i > 500:
+#             predict_prob_df = pd.DataFrame(Q, columns=['NO_PURCHASE'] + slots_offered)
+#             beta_df = pd.DataFrame([np.array(beta_coef)], columns=['NO_PURCHASE'] + slots_offered + ['Discount', 'Eco', 'Gr'])
+#             predict_prob_df.to_csv(Location + filename + 'predprobfeatures.csv')
+#             beta_df.to_csv(Location + filename + 'betafeatures.csv')
+#             del summary, predict_prob_df, design_df, features_df, assortment_df, choice_df, design, features, assortment, choice
+#             break
+#     return beta_df.iloc[0]
 
 
 def MMfeaturesBoot(Location, filename, summary, slots_offered):
     beta_coef = np.append([0], np.random.rand(len(slots_offered) + 3))
     features_df, disc_cols, eco_cols, gr_cols = get_active_features(summary, slots_offered)
-    beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
+    beta_ext = expand_beta(beta_coef, len(disc_cols), len(eco_cols), len(gr_cols))
     design_df = get_design_matrix(features_df.columns.tolist(), slots_offered)
-    assortment_df = summary.loc[:, ['C' + col for col in ['NO_PURCHASE'] + slots_offered]].fillna(0)
+    assortment_df = summary.loc[:, ['C_' + col for col in ['NO_PURCHASE'] + slots_offered]].fillna(0)
     choice_df = summary.loc[:, [col for col in ['NO_PURCHASE'] + slots_offered]].fillna(0)
     design = design_df.values
     features = features_df.values
@@ -185,10 +189,10 @@ def MMfeaturesBoot(Location, filename, summary, slots_offered):
         beta_coef, Q = update_beta(design, features, disc_cols, eco_cols, gr_cols, assortment, choice, beta_ext_cp,
                                    beta, slots_offered)
         log_likeli = sum(np.log(sum(Q * choice, 1)))
-        beta_ext = expand_beta(beta_coef, len(disc_cols), len(disc_cols), len(gr_cols))
+        beta_ext = expand_beta(beta_coef, len(disc_cols), len(eco_cols), len(gr_cols))
         print('Iteration=', i, 'loglikelihood =', log_likeli, 'beta_disc', beta_coef[-3], 'beta_eco', beta_coef[-2],
               'beta_gr', beta_coef[-1])
-        if np.linalg.norm(beta_coef - beta) < 10 ** -6 or i > 500:
+        if np.linalg.norm(beta_coef[:-1] - beta[:-1]) < 10 ** -6 or i > 500:
             predict_prob_df = pd.DataFrame(Q, columns=['NO_PURCHASE'] + slots_offered)
             beta_df = pd.DataFrame([np.array(beta_coef)],
                                    columns=['NO_PURCHASE'] + slots_offered + ['Discount', 'Eco', 'Gr'])
@@ -201,6 +205,9 @@ def MMfeaturesBoot(Location, filename, summary, slots_offered):
 
 if __name__ == "__main__":
     zone_path, zone_file_prefix = get_zone_output_path(zone, root)
-    summary = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'Summary.csv'))
+    summary = pd.read_csv(
+        '/Users/anupamtripathi/PycharmProjects/RA_/results/gr/500.0/gr_unranked_stacked_arrival_0_cut_-1_cap_2.csv')
+    summary = summary.drop(['NO_PURCHASE_Eco', 'NO_PURCHASE_Discount'], axis=1)
+    summary = summary.dropna()
     slots_offered = pd.read_csv(os.path.join(zone_path, zone_file_prefix + 'SlotsOfferedTitle.csv'))
-    mm_features(zone_path, zone_file_prefix, summary, slots_offered['slotsOffered'])
+    MMfeaturesBoot(zone_path, zone_file_prefix, summary, slots_offered['slotsOffered'].tolist())

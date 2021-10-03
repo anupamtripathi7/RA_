@@ -19,7 +19,7 @@ def create_summary_by_zone(zones):
     for zone in zones:
         zone_path, zone_file_prefix = get_zone_output_path(zone, data_path)
         df_avail, df_order, df_steer, df_cap = load_data_file_for_zone(zone, data_path)
-        slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns)
+        slots_observed, cslots_observed = get_slots_observed(zone_path, zone_file_prefix, df_avail, df_order.columns, check_existing=False)
         slots_active, cslots_active, slots_offered, cslots_offered = get_slots_active(zone_path, zone_file_prefix,
                                                                                       df_order, slots_observed)
         summary = summarize(zone_path, zone_file_prefix, df_avail, df_order, df_steer, df_cap,
@@ -125,4 +125,4 @@ def create_rank_data_by_zone(zone, computername):
 
 
 if __name__ == "__main__":
-    create_rank_data_by_zone('500.0', data_path)
+    create_summary_by_zone(['500.0'])
